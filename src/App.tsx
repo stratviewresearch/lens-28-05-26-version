@@ -22,6 +22,7 @@ import Terms from "./pages/Terms";
 import Disclaimer from "./pages/Disclaimer";
 import VerifyEmail from "./pages/VerifyEmail";
 import NotFound from "./pages/NotFound";
+import PdfViewer from "./pages/PdfViewer";
 import QueryFormTab from "@/components/QueryFormTab";
 
 import DashboardGuard from "./components/DashboardGuard";
@@ -91,6 +92,15 @@ const AppContent = () => {
           <Route path="/terms" element={<Terms />} />
           <Route path="/disclaimer" element={<Disclaimer />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+
+          <Route
+            path="/viewer/pdf"
+            element={
+              <AuthGuard>
+                <PdfViewer />
+              </AuthGuard>
+            }
+          />
 
           {/* Auto-discovered dashboard routes protected by DashboardGuard */}
           {dashboardRegistry.map(({ routePath, component: Component }) => (
