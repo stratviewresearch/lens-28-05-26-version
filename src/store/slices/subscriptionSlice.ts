@@ -58,7 +58,7 @@ export const submitInquiry = createAsyncThunk(
         user_id?: number; 
         dashboard_slug: string; 
         message: string; 
-        type: 'access_request' | 'subscription_inquires' | 'query_form' 
+        type: 'access_request' | 'subscription_inquires' | 'query_form' | 'custom_requirement' 
     }, { getState, rejectWithValue }) => {
         try {
             const response = await apiService.post(ENDPOINTS.DASHBOARD.INQUIRY, inquiryData);
