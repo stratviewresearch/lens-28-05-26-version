@@ -42,7 +42,9 @@ const PdfViewer = () => {
   const [pageNum, setPageNum] = useState(1);
   const [scale, setScale] = useState(1.1);
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
-  const [fitWidth, setFitWidth] = useState(true);
+  const [containerHeight, setContainerHeight] = useState<number | null>(null);
+  const [fitPage, setFitPage] = useState(true);
+  const [pageNatural, setPageNatural] = useState<{ width: number; height: number } | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [downloadedBytes, setDownloadedBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState<number | null>(null);
