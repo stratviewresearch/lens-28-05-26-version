@@ -48,6 +48,7 @@ const PdfViewer = () => {
   const [totalBytes, setTotalBytes] = useState<number | null>(null);
   const [renderProgress, setRenderProgress] = useState(0);
   const [rendering, setRendering] = useState(false);
+  const [perceivedPct, setPerceivedPct] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -275,6 +276,22 @@ const PdfViewer = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
+  // Perceived-progress ticker: eases toward 90% while loading so the bar
+  // never feels stuck at 0 when the server doesn't stream real progress.
+  useEffect(() => {
+    if (!loading) return;
+    setPerceivedPct((p) => (p > 0 ? p : 3));
+    const id = window.setInterval(() => {
+      setPerceivedPct((p) => {
+        if (p >= 90) return p;
+        // Slow down as we approach the cap
+        const step = Math.max(0.5, (90 - p) * 0.06);
+        return Math.min(90, +(p + step).toFixed(1));
+      });
+    }, 200);
+    return () => window.clearInterval(id);
+  }, [loading]);
+
   // Track container width for fit-to-width
   useEffect(() => {
     const el = containerRef.current;
@@ -304,23 +321,17 @@ const PdfViewer = () => {
 
   const onContextMenu = (e: React.MouseEvent) => e.preventDefault();
 
-  const formatBytes = (n: number) => {
-    if (!Number.isFinite(n) || n <= 0) return "0 B";
-    const units = ["B", "KB", "MB", "GB"];
-    const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
-    return `${(n / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-  };
-
-  const downloadPct =
+  const realDownloadPct =
     totalBytes && totalBytes > 0
       ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100))
       : null;
   const showProgress = loading || rendering;
   const stageDownloading = loading;
-  const isIndeterminate = stageDownloading && downloadPct === null;
-  const activePct = stageDownloading
-    ? downloadPct ?? 0
-    : Math.max(5, Math.round(renderProgress * 100));
+  // Use real % when available; otherwise the perceived ticker so it never sticks at 0.
+  const downloadDisplayPct =
+    realDownloadPct !== null ? Math.max(realDownloadPct, Math.round(perceivedPct)) : Math.round(perceivedPct);
+  const renderDisplayPct = Math.max(5, Math.round(renderProgress * 100));
+  const activePct = stageDownloading ? downloadDisplayPct : renderDisplayPct;
 
   const renderDownloadSlot = () => {
     if (tier === "enterprise") {
@@ -442,19 +453,14 @@ const PdfViewer = () => {
                   {stageDownloading ? "Loading report…" : "Preparing pages…"}
                 </span>
               </div>
-              <Progress
-                value={isIndeterminate ? 0 : activePct}
-                className={isIndeterminate ? "animate-pulse" : ""}
-              />
+              <Progress value={activePct} />
               <div className="mt-2 flex justify-between text-xs tabular-nums text-muted-foreground">
                 <span>
                   {stageDownloading
-                    ? isIndeterminate
-                      ? `${formatBytes(downloadedBytes)} loaded`
-                      : `${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes!)} loaded`
-                    : `${Math.round(renderProgress * 100)}% rendered`}
+                    ? `${downloadDisplayPct}% loaded`
+                    : `${renderDisplayPct}% rendered`}
                 </span>
-                <span>{isIndeterminate ? "" : `${activePct}%`}</span>
+                <span>{`${activePct}%`}</span>
               </div>
             </div>
           </div>
