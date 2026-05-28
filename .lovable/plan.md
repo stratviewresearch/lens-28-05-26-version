@@ -1,17 +1,9 @@
-## Problem
-In `src/components/ViewFullReportButton.tsx`, the `FileText` icon has `mr-2` class, but the parent `<Button>` already applies `gap-2` via its `buttonVariants` CVA. This creates double spacing (8px gap + 8px margin-right = 16px) between the icon and the "View Full Report" text, making the text appear shifted to the right.
+In `src/pages/PdfViewer.tsx`, replace the fit-width calculation on the `<Page>` component:
 
-## Fix
-Remove the redundant `mr-2` class from the icon in `ViewFullReportButton.tsx`.
-
-### File: `src/components/ViewFullReportButton.tsx`
-Change:
-```
-<FileText className="mr-2 h-4 w-4" />
-```
-To:
-```
-<FileText className="h-4 w-4" />
+```tsx
+width={fitWidth && containerWidth ? containerWidth - 32 : undefined}
 ```
 
-This leaves `gap-2` on the Button as the single source of spacing between icon and text.
+This removes the 1100px cap so "Fit" actually fits the available container width on laptop screens, and uses a small 32px horizontal margin for breathing room. Manual zoom is unchanged.
+
+Single-file edit, no other changes.

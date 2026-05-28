@@ -392,7 +392,7 @@ const PdfViewer = () => {
                 key={pageNum}
                 pageNumber={pageNum}
                 scale={fitWidth ? undefined : scale}
-                width={fitWidth && containerWidth ? Math.min(containerWidth - 48, 1100) : undefined}
+                width={fitWidth && containerWidth ? containerWidth - 32 : undefined}
                 renderAnnotationLayer={false}
                 renderTextLayer={false}
                 className="shadow-lg animate-in fade-in duration-150"
