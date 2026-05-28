@@ -42,7 +42,9 @@ const PdfViewer = () => {
   const [pageNum, setPageNum] = useState(1);
   const [scale, setScale] = useState(1.1);
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
-  const [fitWidth, setFitWidth] = useState(true);
+  const [containerHeight, setContainerHeight] = useState<number | null>(null);
+  const [fitPage, setFitPage] = useState(true);
+  const [pageNatural, setPageNatural] = useState<{ width: number; height: number } | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [downloadedBytes, setDownloadedBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState<number | null>(null);
@@ -62,11 +64,11 @@ const PdfViewer = () => {
   }, []);
 
   const zoomIn = useCallback(() => {
-    setFitWidth(false);
+    setFitPage(false);
     setScale((s) => Math.min(3, +(s + 0.1).toFixed(2)));
   }, []);
   const zoomOut = useCallback(() => {
-    setFitWidth(false);
+    setFitPage(false);
     setScale((s) => Math.max(0.5, +(s - 0.1).toFixed(2)));
   }, []);
 
@@ -292,13 +294,14 @@ const PdfViewer = () => {
     return () => window.clearInterval(id);
   }, [loading]);
 
-  // Track container width for fit-to-width
+  // Track container size for fit-to-page
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         setContainerWidth(entry.contentRect.width);
+        setContainerHeight(entry.contentRect.height);
       }
     });
     ro.observe(el);
@@ -388,7 +391,7 @@ const PdfViewer = () => {
             variant="ghost"
             size="icon"
             onClick={() => {
-              setFitWidth(false);
+              setFitPage(false);
               setScale((s) => Math.max(0.5, +(s - 0.1).toFixed(2)));
             }}
             aria-label="Zoom out"
@@ -396,13 +399,13 @@ const PdfViewer = () => {
             <Minus className="h-4 w-4" />
           </Button>
           <span className="min-w-[48px] text-center text-xs tabular-nums text-muted-foreground">
-            {fitWidth ? "Fit" : `${Math.round(scale * 100)}%`}
+            {fitPage ? "Fit" : `${Math.round(scale * 100)}%`}
           </span>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => {
-              setFitWidth(false);
+              setFitPage(false);
               setScale((s) => Math.min(3, +(s + 0.1).toFixed(2)));
             }}
             aria-label="Zoom in"
@@ -412,8 +415,8 @@ const PdfViewer = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setFitWidth((v) => !v)}
-            aria-label="Fit to width"
+            onClick={() => setFitPage((v) => !v)}
+            aria-label="Fit to page"
           >
             <Maximize2 className="h-4 w-4" />
           </Button>
@@ -478,7 +481,7 @@ const PdfViewer = () => {
 
         {!loading && !error && fileProp && (
           <div
-            className="flex justify-center py-6"
+            className="flex justify-center px-2 py-2 sm:px-4 sm:py-4"
             style={rendering ? { visibility: "hidden", height: 0, overflow: "hidden" } : undefined}
           >
             <Document
@@ -500,15 +503,37 @@ const PdfViewer = () => {
                 </div>
               }
             >
-              <Page
-                key={pageNum}
-                pageNumber={pageNum}
-                scale={fitWidth ? undefined : scale}
-                width={fitWidth && containerWidth ? containerWidth - 32 : undefined}
-                renderAnnotationLayer={false}
-                renderTextLayer={false}
-                className="shadow-lg animate-in fade-in duration-150"
-              />
+              {(() => {
+                const isSmall = (containerWidth ?? 0) < 640;
+                const padX = isSmall ? 16 : 32;
+                const padY = isSmall ? 16 : 32;
+                let fitScale: number | undefined;
+                if (fitPage && pageNatural && containerWidth && containerHeight) {
+                  const availW = Math.max(80, containerWidth - padX);
+                  const availH = Math.max(80, containerHeight - padY);
+                  fitScale = Math.min(availW / pageNatural.width, availH / pageNatural.height);
+                }
+                return (
+                  <Page
+                    key={pageNum}
+                    pageNumber={pageNum}
+                    scale={fitPage ? fitScale : scale}
+                    onLoadSuccess={(p: any) => {
+                      // p.originalWidth / originalHeight are at scale 1
+                      const w = p?.originalWidth ?? p?.width;
+                      const h = p?.originalHeight ?? p?.height;
+                      if (w && h) {
+                        setPageNatural((prev) =>
+                          prev && prev.width === w && prev.height === h ? prev : { width: w, height: h },
+                        );
+                      }
+                    }}
+                    renderAnnotationLayer={false}
+                    renderTextLayer={false}
+                    className="shadow-lg animate-in fade-in duration-150"
+                  />
+                );
+              })()}
             </Document>
           </div>
         )}
