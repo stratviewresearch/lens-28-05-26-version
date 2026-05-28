@@ -45,11 +45,152 @@ const PdfViewer = () => {
   const [showUpgrade, setShowUpgrade] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewerRef = useRef<HTMLDivElement>(null);
+  const [flipKey, setFlipKey] = useState(0);
+
+  const goNext = useCallback(() => {
+    setPageNum((p) => {
+      if (!numPages) return p;
+      if (p >= numPages) return p;
+      setFlipKey((k) => k + 1);
+      return p + 1;
+    });
+  }, [numPages]);
+
+  const goPrev = useCallback(() => {
+    setPageNum((p) => {
+      if (p <= 1) return p;
+      setFlipKey((k) => k + 1);
+      return p - 1;
+    });
+  }, []);
+
+  const zoomIn = useCallback(() => {
+    setFitWidth(false);
+    setScale((s) => Math.min(3, +(s + 0.1).toFixed(2)));
+  }, []);
+  const zoomOut = useCallback(() => {
+    setFitWidth(false);
+    setScale((s) => Math.max(0.5, +(s - 0.1).toFixed(2)));
+  }, []);
 
   // Set the title of the new tab
   useEffect(() => {
     if (title) document.title = title;
   }, [title]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t) {
+        const tag = t.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || t.isContentEditable) return;
+      }
+      switch (e.key) {
+        case "ArrowRight":
+        case "PageDown":
+        case " ":
+          e.preventDefault();
+          goNext();
+          break;
+        case "ArrowLeft":
+        case "PageUp":
+          e.preventDefault();
+          goPrev();
+          break;
+        case "Home":
+          e.preventDefault();
+          setPageNum(1);
+          break;
+        case "End":
+          e.preventDefault();
+          if (numPages) setPageNum(numPages);
+          break;
+        case "+":
+        case "=":
+          e.preventDefault();
+          zoomIn();
+          break;
+        case "-":
+        case "_":
+          e.preventDefault();
+          zoomOut();
+          break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goNext, goPrev, zoomIn, zoomOut, numPages]);
+
+  // Touch swipe navigation
+  useEffect(() => {
+    const el = viewerRef.current;
+    if (!el) return;
+    let startX = 0;
+    let startY = 0;
+    let active = false;
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      active = true;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (!active) return;
+      active = false;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0) goNext();
+        else goPrev();
+      }
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchend", onEnd);
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchend", onEnd);
+    };
+  }, [goNext, goPrev]);
+
+  // Trackpad horizontal wheel swipe
+  useEffect(() => {
+    const el = viewerRef.current;
+    if (!el) return;
+    let accum = 0;
+    let cooldown = false;
+    let resetTimer: ReturnType<typeof setTimeout> | null = null;
+    const THRESHOLD = 60;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) {
+        accum = 0;
+        return;
+      }
+      e.preventDefault();
+      if (cooldown) return;
+      accum += e.deltaX;
+      if (resetTimer) clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => (accum = 0), 200);
+      if (accum > THRESHOLD) {
+        accum = 0;
+        cooldown = true;
+        goNext();
+        setTimeout(() => (cooldown = false), 350);
+      } else if (accum < -THRESHOLD) {
+        accum = 0;
+        cooldown = true;
+        goPrev();
+        setTimeout(() => (cooldown = false), 350);
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      if (resetTimer) clearTimeout(resetTimer);
+    };
+  }, [goNext, goPrev]);
 
   // Fetch the PDF as a blob (with auth)
   const loadPdf = useCallback(async () => {
@@ -219,8 +360,13 @@ const PdfViewer = () => {
 
       {/* Body */}
       <div
-        ref={containerRef}
-        className="flex-1 overflow-auto bg-muted/30"
+        ref={(node) => {
+          containerRef.current = node;
+          viewerRef.current = node;
+        }}
+        tabIndex={0}
+        autoFocus
+        className="flex-1 overflow-auto bg-muted/30 outline-none"
         onContextMenu={onContextMenu}
       >
         {loading && (
@@ -240,7 +386,7 @@ const PdfViewer = () => {
         )}
 
         {!loading && !error && fileProp && (
-          <div className="flex justify-center py-6">
+          <div key={flipKey} className="flex justify-center py-6 animate-in fade-in duration-150">
             <Document
               file={fileProp}
               onLoadSuccess={({ numPages: n }) => {

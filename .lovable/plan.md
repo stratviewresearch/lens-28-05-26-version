@@ -1,124 +1,40 @@
-# Plan — In-app PDF viewer + "View Full Report" button (with future per-dashboard tier gating)
-
 ## Goal
-Add an opt-in **View Full Report** button to selected dashboards. Clicking it opens a new tab in our own PDF viewer (not the browser's native viewer). Other dashboards remain untouched. First rollout: **Traffic Marking Solutions** with proxy `https://lens.stratviewresearch.com/reactadmin/web/proxy/57`.
+Make page navigation in the PDF viewer feel natural: keyboard arrows on laptop, swipe gestures on touchpad/touchscreen, plus keep the existing toolbar controls.
 
-The viewer is built so that **later**, when the backend starts returning a per-dashboard `tier` (`enterprise` | `individual` | nothing), it can flip on a Download button for enterprise users only — with zero structural changes.
+## Yes, all of this is possible
+`react-pdf` renders pages as standard DOM, so we can layer keyboard and pointer/touch handlers on top without changing how pages are drawn.
 
-## Tier gating model (designed now, enforced later)
+## Changes (all inside `src/pages/PdfViewer.tsx`)
 
-Source of truth: the existing subscription/access object the backend already returns per dashboard for the logged-in user. Your dev will add an optional field, e.g.:
+### 1. Keyboard navigation
+Add a `useEffect` that listens on `window` for `keydown`:
+- `ArrowRight` / `PageDown` / `Space` → next page
+- `ArrowLeft` / `PageUp` → previous page
+- `Home` → first page, `End` → last page
+- `+` / `-` → zoom in/out (nice-to-have, matches toolbar)
+- Ignore events when focus is inside an `input`, `textarea`, or `[contenteditable]` so typing in the page-number field still works.
 
-```jsonc
-// existing subscription entry per dashboard
-{ "dashboardId": "traffic-marking-solutions", "purchased": true, "tier": "enterprise" }
-```
+### 2. Swipe / trackpad gestures
+Wrap the page canvas in a container with gesture handlers:
+- **Touchscreens & touch-capable laptops:** `touchstart` / `touchend` — if horizontal delta > 50px and greater than vertical delta, flip page. (Lightweight, no new dependency.)
+- **Trackpad two-finger horizontal swipe:** listen for `wheel` events where `Math.abs(deltaX) > Math.abs(deltaY)` and `deltaX` crosses a threshold (~40px accumulated). Debounce so one swipe = one page turn, not a burst.
+- **Mouse drag (optional, low cost):** `pointerdown` + `pointermove` + `pointerup` for click-and-drag horizontal swipe.
 
-Rules inside `PdfViewer.tsx`:
-- `tier === "enterprise"` → show **Download** button (saves the already-fetched blob).
-- `tier === "individual"` → show **Download (Upgrade)** button that opens an upgrade CTA/inquiry dialog.
-- `tier` missing / unknown / not yet implemented → **view-only**, no download UI. (Safe default — current state of the world.)
+Vertical scroll keeps working untouched (we only act on clearly horizontal intent).
 
-Frontend reads `tier` from the Redux subscription slice (already loaded on app start via `fetchSubscriptions`). No new API call required now. When backend ships the field, the UI lights up automatically.
+### 3. Small UX polish
+- Add a subtle visual cue: a brief opacity/translate animation on page change so swipes feel responsive.
+- Add `tabIndex={0}` and `autoFocus` on the viewer container so keyboard works immediately after the tab opens, without the user clicking first.
+- Keep all existing toolbar buttons; nothing is removed.
 
-## Answer: yes, future enterprise download is possible
-Because:
-1. The PDF is streamed through our viewer as a `Blob` via `apiService` (auth headers attached).
-2. We fully own the toolbar — no browser-native download/print.
-3. Adding a Download button is a one-line conditional based on the tier lookup that already lives in Redux.
-4. The proxy URL itself is never exposed to the user (we hand them an internal viewer route), so there's no "right-click → save" leak via the URL.
+## Out of scope
+- Pinch-to-zoom (can be a follow-up; needs more gesture logic).
+- Tier/download behavior — unchanged.
+- No new npm dependencies; everything uses native DOM events.
 
-## Scope (this iteration)
-1. New page `src/pages/PdfViewer.tsx` (view-only toolbar; tier-aware download slot prewired but inactive until backend ships `tier`).
-2. New route `/viewer/pdf?src=<proxyUrl>&dashboardId=<id>&title=<...>` (behind `AuthGuard`).
-3. New shared component `src/components/ViewFullReportButton.tsx`.
-4. Config-driven: dashboards that set `reportPdfUrl` in their `config.ts` get the button; others don't.
-5. Wire into **Traffic Marking Solutions** in the same row as the existing "Back to Traffic Marking Solutions" button.
-
-## Technical details
-
-### PDF viewer page (`src/pages/PdfViewer.tsx`)
-- Library: `react-pdf` (PDF.js under the hood). Standard, themable, lets us hide the browser toolbar entirely.
-- Flow:
-  1. Read `src`, `dashboardId`, `title` from query string.
-  2. `apiService` GET `src` with `responseType: 'blob'` so the existing auth token is sent.
-  3. Convert blob → object URL → `<Document file={objectUrl}>`.
-  4. Revoke object URL on unmount.
-- Custom top toolbar (themed with our semantic tokens):
-  - Title (left), page nav (Prev / `n of N` / Next), zoom (− / % / +), fit-to-width, close-tab (right).
-  - **Download slot** (right edge): rendered based on tier lookup:
-    - `enterprise` → enabled "Download PDF" button (saves blob via anchor + `revokeObjectURL`).
-    - `individual` → "Download" button that opens upgrade dialog.
-    - unknown/missing → slot renders nothing.
-- Disable right-click context menu on the canvas (discourages casual "Save image as").
-- Loading skeleton, error state with Retry, mobile-responsive.
-
-Realistic caveat: no web viewer can stop a determined user from grabbing a fetched blob via devtools. The product intent here is "no visible download affordance", which this delivers.
-
-### Tier lookup helper (`src/lib/subscriptionTier.ts`)
-Tiny pure function used by the viewer:
-```ts
-export type Tier = "enterprise" | "individual" | "unknown";
-export const getDashboardTier = (subs: any[], dashboardId: string): Tier => {
-  const s = subs?.find(x => x.dashboardId === dashboardId);
-  if (s?.tier === "enterprise") return "enterprise";
-  if (s?.tier === "individual") return "individual";
-  return "unknown";
-};
-```
-Reads from `state.subscriptions` Redux slice already populated on login.
-
-### Button component (`src/components/ViewFullReportButton.tsx`)
-- Props: `pdfUrl: string`, `dashboardId: string`, `title?: string`.
-- Renders a themed `Button` (matching the row's existing style) with a `FileText` lucide icon and label "View Full Report".
-- On click: opens
-  `/viewer/pdf?src=<enc>&dashboardId=<enc>&title=<enc>` in a new tab via `window.open(..., '_blank', 'noopener,noreferrer')`.
-
-### Config opt-in pattern
-Per dashboard (optional fields):
-```ts
-reportPdfUrl?: string;   // proxy URL returning a PDF
-reportTitle?: string;     // optional viewer tab title (defaults to config.title)
-```
-For Traffic Marking Solutions: set/confirm `reportPdfUrl = "https://lens.stratviewresearch.com/reactadmin/web/proxy/57"`.
-
-In `traffic-marking-solutions/Dashboard.tsx`, replace the current single-button row with:
-```tsx
-<div className="mb-4 flex items-center justify-between gap-2">
-  <Button variant="ghost" onClick={() => navigate(config.backPath)}>
-    <ArrowLeft className="mr-2 h-4 w-4" /> {config.backLabel}
-  </Button>
-  {config.reportPdfUrl && (
-    <ViewFullReportButton
-      pdfUrl={config.reportPdfUrl}
-      dashboardId={config.catalog.dashboardId}
-      title={config.title}
-    />
-  )}
-</div>
-```
-Other dashboards untouched — they continue to work exactly as today. To enable on any future dashboard, set `reportPdfUrl` in its config and add the same 5-line button block.
-
-### Route registration (`src/App.tsx`)
-Add above the catch-all:
-```tsx
-<Route path="/viewer/pdf" element={<AuthGuard><PdfViewer /></AuthGuard>} />
-```
-
-### Dependency
-Add `react-pdf` via `bun add react-pdf` (pulls `pdfjs-dist`).
-
-## Files changed
-- **New** `src/pages/PdfViewer.tsx`
-- **New** `src/components/ViewFullReportButton.tsx`
-- **New** `src/lib/subscriptionTier.ts`
-- **Edit** `src/App.tsx` — register `/viewer/pdf` route
-- **Edit** `src/dashboards/traffic-marking-solutions/config.ts` — set `reportPdfUrl` to proxy/57
-- **Edit** `src/dashboards/traffic-marking-solutions/Dashboard.tsx` — render button in the back-button row
-- **Edit** `package.json` — add `react-pdf`
-
-## Out of scope (handled cleanly later, no rework)
-- Backend adds `tier` field on subscriptions and admin-panel UI to set it.
-- Enabling the Download button for enterprise + Upgrade dialog for individual — both already wired as dormant code paths in `PdfViewer.tsx`.
-
-Ready to implement on approval.
+## Acceptance
+- Arrow keys flip pages on desktop.
+- Two-finger horizontal swipe on a Mac/Windows trackpad flips one page per gesture.
+- Touch swipe flips pages on touch laptops/tablets.
+- Typing in the page-number input is unaffected.
+- Toolbar still works as before.
