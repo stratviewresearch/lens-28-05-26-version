@@ -20,7 +20,7 @@ export const ViewFullReportButton = ({ pdfUrl, dashboardSlug, title, className }
 
   return (
     <Button variant="default" onClick={handleClick} className={className}>
-      <FileText className="mr-2 h-4 w-4" />
+      <FileText className="h-4 w-4" />
       View Full Report
     </Button>
   );
