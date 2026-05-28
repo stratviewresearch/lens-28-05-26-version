@@ -46,23 +46,13 @@ const PdfViewer = () => {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const [flipKey, setFlipKey] = useState(0);
 
   const goNext = useCallback(() => {
-    setPageNum((p) => {
-      if (!numPages) return p;
-      if (p >= numPages) return p;
-      setFlipKey((k) => k + 1);
-      return p + 1;
-    });
+    setPageNum((p) => (!numPages || p >= numPages ? p : p + 1));
   }, [numPages]);
 
   const goPrev = useCallback(() => {
-    setPageNum((p) => {
-      if (p <= 1) return p;
-      setFlipKey((k) => k + 1);
-      return p - 1;
-    });
+    setPageNum((p) => (p <= 1 ? p : p - 1));
   }, []);
 
   const zoomIn = useCallback(() => {
@@ -201,6 +191,7 @@ const PdfViewer = () => {
     }
     setLoading(true);
     setError(null);
+    setPageNum(1);
     try {
       const res = await apiService.get(src);
       if (!res.ok) throw new Error(`Failed to load PDF (${res.status})`);
@@ -386,13 +377,10 @@ const PdfViewer = () => {
         )}
 
         {!loading && !error && fileProp && (
-          <div key={flipKey} className="flex justify-center py-6 animate-in fade-in duration-150">
+          <div className="flex justify-center py-6">
             <Document
               file={fileProp}
-              onLoadSuccess={({ numPages: n }) => {
-                setNumPages(n);
-                setPageNum(1);
-              }}
+              onLoadSuccess={({ numPages: n }) => setNumPages(n)}
               onLoadError={(e) => setError(e?.message || "Failed to render PDF")}
               loading={
                 <div className="flex items-center justify-center py-12">
@@ -401,12 +389,13 @@ const PdfViewer = () => {
               }
             >
               <Page
+                key={pageNum}
                 pageNumber={pageNum}
                 scale={fitWidth ? undefined : scale}
                 width={fitWidth && containerWidth ? Math.min(containerWidth - 48, 1100) : undefined}
                 renderAnnotationLayer={false}
                 renderTextLayer={false}
-                className="shadow-lg"
+                className="shadow-lg animate-in fade-in duration-150"
               />
             </Document>
           </div>
