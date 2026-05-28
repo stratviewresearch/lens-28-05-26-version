@@ -44,6 +44,10 @@ const PdfViewer = () => {
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
   const [fitWidth, setFitWidth] = useState(true);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [downloadedBytes, setDownloadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState<number | null>(null);
+  const [renderProgress, setRenderProgress] = useState(0);
+  const [rendering, setRendering] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -193,11 +197,41 @@ const PdfViewer = () => {
     setLoading(true);
     setError(null);
     setPageNum(1);
+    setDownloadedBytes(0);
+    setTotalBytes(null);
+    setRenderProgress(0);
+    setRendering(false);
     try {
       const res = await apiService.get(src);
       if (!res.ok) throw new Error(`Failed to load PDF (${res.status})`);
-      const b = await res.blob();
+      const lenHeader = res.headers.get("Content-Length");
+      const total = lenHeader ? parseInt(lenHeader, 10) : NaN;
+      if (Number.isFinite(total) && total > 0) setTotalBytes(total);
+
+      let b: Blob;
+      if (res.body && typeof (res.body as any).getReader === "function") {
+        const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+        const chunks: Uint8Array[] = [];
+        let received = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            received += value.byteLength;
+            setDownloadedBytes(received);
+          }
+        }
+        b = new Blob(chunks, {
+          type: res.headers.get("Content-Type") || "application/pdf",
+        });
+      } else {
+        b = await res.blob();
+        setDownloadedBytes(b.size);
+      }
       setBlob(b);
+      setRendering(true);
       const url = URL.createObjectURL(b);
       setBlobUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
