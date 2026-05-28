@@ -223,7 +223,7 @@ const PdfViewer = () => {
             setDownloadedBytes(received);
           }
         }
-        b = new Blob(chunks, {
+        b = new Blob(chunks as BlobPart[], {
           type: res.headers.get("Content-Type") || "application/pdf",
         });
       } else {
