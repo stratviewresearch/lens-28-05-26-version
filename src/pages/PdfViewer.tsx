@@ -430,9 +430,9 @@ const PdfViewer = () => {
                 <span>
                   {stageDownloading
                     ? isIndeterminate
-                      ? `${formatBytes(downloadedBytes)} downloaded`
-                      : `${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes!)}`
-                    : "Rendering…"}
+                      ? `${formatBytes(downloadedBytes)} loaded`
+                      : `${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes!)} loaded`
+                    : `${Math.round(renderProgress * 100)}% rendered`}
                 </span>
                 <span>{isIndeterminate ? "" : `${activePct}%`}</span>
               </div>
