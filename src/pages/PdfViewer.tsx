@@ -481,7 +481,7 @@ const PdfViewer = () => {
 
         {!loading && !error && fileProp && (
           <div
-            className="flex justify-center py-6"
+            className="flex justify-center px-2 py-2 sm:px-4 sm:py-4"
             style={rendering ? { visibility: "hidden", height: 0, overflow: "hidden" } : undefined}
           >
             <Document
@@ -503,15 +503,37 @@ const PdfViewer = () => {
                 </div>
               }
             >
-              <Page
-                key={pageNum}
-                pageNumber={pageNum}
-                scale={fitWidth ? undefined : scale}
-                width={fitWidth && containerWidth ? containerWidth - 32 : undefined}
-                renderAnnotationLayer={false}
-                renderTextLayer={false}
-                className="shadow-lg animate-in fade-in duration-150"
-              />
+              {(() => {
+                const isSmall = (containerWidth ?? 0) < 640;
+                const padX = isSmall ? 16 : 32;
+                const padY = isSmall ? 16 : 32;
+                let fitScale: number | undefined;
+                if (fitPage && pageNatural && containerWidth && containerHeight) {
+                  const availW = Math.max(80, containerWidth - padX);
+                  const availH = Math.max(80, containerHeight - padY);
+                  fitScale = Math.min(availW / pageNatural.width, availH / pageNatural.height);
+                }
+                return (
+                  <Page
+                    key={pageNum}
+                    pageNumber={pageNum}
+                    scale={fitPage ? fitScale : scale}
+                    onLoadSuccess={(p: any) => {
+                      // p.originalWidth / originalHeight are at scale 1
+                      const w = p?.originalWidth ?? p?.width;
+                      const h = p?.originalHeight ?? p?.height;
+                      if (w && h) {
+                        setPageNatural((prev) =>
+                          prev && prev.width === w && prev.height === h ? prev : { width: w, height: h },
+                        );
+                      }
+                    }}
+                    renderAnnotationLayer={false}
+                    renderTextLayer={false}
+                    className="shadow-lg animate-in fade-in duration-150"
+                  />
+                );
+              })()}
             </Document>
           </div>
         )}
