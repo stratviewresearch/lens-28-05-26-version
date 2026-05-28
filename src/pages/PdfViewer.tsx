@@ -213,6 +213,16 @@ const PdfViewer = () => {
         const reader = (res.body as ReadableStream<Uint8Array>).getReader();
         const chunks: Uint8Array[] = [];
         let received = 0;
+        let rafScheduled = false;
+        let lastFlushed = 0;
+        const flush = () => {
+          rafScheduled = false;
+          if (received !== lastFlushed) {
+            lastFlushed = received;
+            setDownloadedBytes(received);
+          }
+        };
+        let chunkCount = 0;
         // eslint-disable-next-line no-constant-condition
         while (true) {
           const { done, value } = await reader.read();
@@ -220,9 +230,19 @@ const PdfViewer = () => {
           if (value) {
             chunks.push(value);
             received += value.byteLength;
-            setDownloadedBytes(received);
+            if (!rafScheduled) {
+              rafScheduled = true;
+              requestAnimationFrame(flush);
+            }
+            // Yield a macrotask periodically so the browser can paint
+            chunkCount++;
+            if (chunkCount % 8 === 0) {
+              await new Promise((r) => setTimeout(r, 0));
+            }
           }
         }
+        // Final flush
+        setDownloadedBytes(received);
         b = new Blob(chunks as BlobPart[], {
           type: res.headers.get("Content-Type") || "application/pdf",
         });
