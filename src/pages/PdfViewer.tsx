@@ -64,11 +64,11 @@ const PdfViewer = () => {
   }, []);
 
   const zoomIn = useCallback(() => {
-    setFitWidth(false);
+    setFitPage(false);
     setScale((s) => Math.min(3, +(s + 0.1).toFixed(2)));
   }, []);
   const zoomOut = useCallback(() => {
-    setFitWidth(false);
+    setFitPage(false);
     setScale((s) => Math.max(0.5, +(s - 0.1).toFixed(2)));
   }, []);
 
@@ -294,13 +294,14 @@ const PdfViewer = () => {
     return () => window.clearInterval(id);
   }, [loading]);
 
-  // Track container width for fit-to-width
+  // Track container size for fit-to-page
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         setContainerWidth(entry.contentRect.width);
+        setContainerHeight(entry.contentRect.height);
       }
     });
     ro.observe(el);
@@ -390,7 +391,7 @@ const PdfViewer = () => {
             variant="ghost"
             size="icon"
             onClick={() => {
-              setFitWidth(false);
+              setFitPage(false);
               setScale((s) => Math.max(0.5, +(s - 0.1).toFixed(2)));
             }}
             aria-label="Zoom out"
@@ -398,13 +399,13 @@ const PdfViewer = () => {
             <Minus className="h-4 w-4" />
           </Button>
           <span className="min-w-[48px] text-center text-xs tabular-nums text-muted-foreground">
-            {fitWidth ? "Fit" : `${Math.round(scale * 100)}%`}
+            {fitPage ? "Fit" : `${Math.round(scale * 100)}%`}
           </span>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => {
-              setFitWidth(false);
+              setFitPage(false);
               setScale((s) => Math.min(3, +(s + 0.1).toFixed(2)));
             }}
             aria-label="Zoom in"
@@ -414,8 +415,8 @@ const PdfViewer = () => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setFitWidth((v) => !v)}
-            aria-label="Fit to width"
+            onClick={() => setFitPage((v) => !v)}
+            aria-label="Fit to page"
           >
             <Maximize2 className="h-4 w-4" />
           </Button>
