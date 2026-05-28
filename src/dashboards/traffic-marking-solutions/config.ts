@@ -22,7 +22,7 @@ export const config = {
   footerText: "Traffic Marking Solutions Market Research Report",
   footerUnit: "All values in US$ Million unless otherwise specified",
 
-  reportPdfUrl: "https://lens.stratviewresearch.com/reactadmin/web/proxy/38",
+  reportPdfUrl: "https://lens.stratviewresearch.com/reactadmin/web/proxy/57",
   reportFileName: "Traffic-Marking-Solutions-Market-Report.pdf",
 
   backPath: "/dataset/traffic-marking-solutions",

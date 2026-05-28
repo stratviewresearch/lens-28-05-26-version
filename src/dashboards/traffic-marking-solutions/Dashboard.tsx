@@ -7,6 +7,7 @@ import { AlertCircle, RefreshCw, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import AppFooter from "@/components/AppFooter";
+import ViewFullReportButton from "@/components/ViewFullReportButton";
 
 import { config, TabType } from "./config";
 import { useMarketData } from "./data";
@@ -74,9 +75,18 @@ const TrafficMarkingDashboard = () => {
       <DashboardHeader title={config.title} subtitle={config.subtitle} />
 
       <main className="container mx-auto px-4 py-8">
-        <Button variant="ghost" onClick={() => navigate(config.backPath)} className="mb-4 self-start text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="mr-2 h-4 w-4" /> {config.backLabel}
-        </Button>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <Button variant="ghost" onClick={() => navigate(config.backPath)} className="text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="mr-2 h-4 w-4" /> {config.backLabel}
+          </Button>
+          {config.reportPdfUrl && (
+            <ViewFullReportButton
+              pdfUrl={config.reportPdfUrl}
+              dashboardSlug={config.catalog.dashboardId}
+              title={config.title}
+            />
+          )}
+        </div>
 
         <div className="mb-8">
           <MainNavigation value={activeTab} onChange={setActiveTab}
