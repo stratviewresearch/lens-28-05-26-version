@@ -1,0 +1,213 @@
+/* ====================================================
+   Composites / Carbon Fiber Dashboard Theme
+   Bold, unmistakable carbon fiber weave with
+   resin-gloss sheen, deep blacks, blue & amber accents
+   ==================================================== */
+.composites-carbon-theme {
+  --background: 220 15% 5%;
+  --foreground: 210 25% 93%;
+  --card: 220 12% 10%;
+  --card-foreground: 210 25% 93%;
+  --popover: 220 12% 12%;
+  --popover-foreground: 210 25% 93%;
+  --primary: 205 90% 52%;
+  --primary-foreground: 220 20% 5%;
+  --secondary: 220 12% 16%;
+  --secondary-foreground: 210 25% 88%;
+  --muted: 220 12% 14%;
+  --muted-foreground: 215 12% 55%;
+  --accent: 35 90% 52%;
+  --accent-foreground: 220 20% 5%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 220 12% 18%;
+  --input: 220 12% 15%;
+  --ring: 205 90% 52%;
+  --chart-1: 205 90% 52%;
+  --chart-2: 35 90% 52%;
+  --chart-3: 170 65% 45%;
+  --chart-4: 340 75% 55%;
+  --chart-5: 280 60% 55%;
+  --chart-6: 150 55% 50%;
+
+  background: hsl(0, 0%, 3%);
+  min-height: 100vh;
+  font-family: 'Poppins', system-ui, sans-serif;
+  position: relative;
+}
+
+.composites-carbon-theme::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      hsl(0, 0%, 8%) 0px,
+      hsl(0, 0%, 11%) 2px,
+      hsl(0, 0%, 14%) 4px,
+      hsl(0, 0%, 11%) 6px,
+      hsl(0, 0%, 8%) 8px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      hsl(0, 0%, 6%) 0px,
+      hsl(0, 0%, 9%) 2px,
+      hsl(0, 0%, 12%) 4px,
+      hsl(0, 0%, 9%) 6px,
+      hsl(0, 0%, 6%) 8px
+    );
+  background-size: 12px 12px;
+  opacity: 1;
+}
+
+.composites-carbon-theme::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 100% 50% at 25% 15%, hsl(205, 80%, 60% / 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 85%, hsl(205, 80%, 55% / 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 80% at 50% 50%, transparent 30%, hsl(0, 0%, 0% / 0.4) 100%);
+}
+
+.composites-carbon-theme > * {
+  position: relative;
+  z-index: 1;
+}
+
+.composites-carbon-theme .glass-card {
+  background: linear-gradient(
+    145deg,
+    hsl(220 10% 11% / 0.92) 0%,
+    hsl(220 10% 7% / 0.8) 100%
+  );
+  backdrop-filter: blur(16px);
+  border: 1px solid hsl(220 10% 20% / 0.6);
+}
+
+.composites-carbon-theme [class*="rounded-xl"][class*="border"][class*="bg-card"] {
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      transparent 0px,
+      transparent 2px,
+      hsl(0, 0%, 15% / 0.12) 2px,
+      hsl(0, 0%, 15% / 0.12) 3px,
+      transparent 3px,
+      transparent 5px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent 0px,
+      transparent 2px,
+      hsl(0, 0%, 15% / 0.12) 2px,
+      hsl(0, 0%, 15% / 0.12) 3px,
+      transparent 3px,
+      transparent 5px
+    );
+  background-color: hsl(220, 10%, 9%);
+  border-color: hsl(220, 10%, 17%);
+}
+
+.composites-carbon-theme .glow-primary {
+  box-shadow: 0 0 20px hsl(205 90% 52% / 0.3),
+              0 0 40px hsl(205 90% 52% / 0.1);
+}
+
+.composites-carbon-theme .text-gradient-primary {
+  background: linear-gradient(135deg, hsl(205, 90%, 52%) 0%, hsl(170, 65%, 45%) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.composites-carbon-theme .bg-grid {
+  background-image:
+    linear-gradient(hsl(220 10% 16% / 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(220 10% 16% / 0.4) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.composites-carbon-theme .stat-card {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.composites-carbon-theme .stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s;
+  background: linear-gradient(135deg, hsl(205 90% 52% / 0.1) 0%, transparent 50%);
+}
+
+.composites-carbon-theme .stat-card:hover::before {
+  opacity: 1;
+}
+
+.composites-carbon-theme .stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px hsl(0 0% 0% / 0.7),
+              0 0 0 1px hsl(205 90% 52% / 0.15);
+}
+
+.composites-carbon-theme header {
+  background:
+    linear-gradient(
+      180deg,
+      hsl(220, 10%, 8% / 0.97) 0%,
+      hsl(220, 10%, 6% / 0.97) 100%
+    ) !important;
+  border-bottom: 1px solid hsl(205, 90%, 52% / 0.2) !important;
+}
+
+.composites-carbon-theme ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.composites-carbon-theme ::-webkit-scrollbar-track {
+  background: hsl(0, 0%, 5%);
+}
+
+.composites-carbon-theme ::-webkit-scrollbar-thumb {
+  background: hsl(220, 10%, 20%);
+  border-radius: 4px;
+}
+
+.composites-carbon-theme ::-webkit-scrollbar-thumb:hover {
+  background: hsl(205, 90%, 52%);
+}
+
+@keyframes composites-pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px hsl(205 90% 52% / 0.25); }
+  50% { box-shadow: 0 0 40px hsl(205 90% 52% / 0.45); }
+}
+
+.composites-carbon-theme .animate-pulse-glow {
+  animation: composites-pulse-glow 3s ease-in-out infinite;
+}
+
+/* ====================================================
+   DialogContent override — keep theme vars but skip
+   the full-page layout, min-height, and weave overlays
+   so the deep-dive modal fits inside the viewport.
+   ==================================================== */
+[role="dialog"].composites-carbon-theme {
+  position: fixed;
+  min-height: 0;
+  background: hsl(222 47% 9%);
+}
+[role="dialog"].composites-carbon-theme::before,
+[role="dialog"].composites-carbon-theme::after {
+  content: none;
+  display: none;
+  background: none;
+}
