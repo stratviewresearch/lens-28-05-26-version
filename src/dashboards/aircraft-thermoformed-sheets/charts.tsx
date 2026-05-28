@@ -1,0 +1,232 @@
+/**
+ * All chart components for Aircraft Thermoformed Sheets Market dashboard.
+ * Self-contained — only imports from local data.ts, ui-helpers.tsx, and recharts.
+ */
+
+import { useState, useRef } from "react";
+import { motion } from "framer-motion";
+import { TrendingUp, X, MousePointer2 } from "lucide-react";
+import {
+  ComposedChart, Line, AreaChart, Area, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Sector,
+} from "recharts";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { YearlyData, SegmentData } from "./data";
+import { calculateCAGR, useChartDownload } from "./data";
+import { ChartDownloadButton, ChartTableViewToggle, DataTable, AnimatedViewSwitch } from "./ui-helpers";
+import { config, type TabType } from "./config";
+
+export const CHART_COLORS = [
+  "hsl(192, 95%, 55%)", "hsl(38, 92%, 55%)", "hsl(262, 83%, 58%)",
+  "hsl(142, 71%, 45%)", "hsl(346, 77%, 50%)", "hsl(199, 89%, 48%)",
+  "hsl(280, 65%, 60%)", "hsl(60, 70%, 50%)",
+];
+
+// ── MarketOverviewChart ───────────────────────────────────────
+
+interface MarketOverviewChartProps { data: YearlyData[]; title: string; subtitle?: string; useMillions?: boolean; }
+
+export function MarketOverviewChart({ data, title, subtitle, useMillions = false }: MarketOverviewChartProps) {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const { downloadChart } = useChartDownload();
+  const [view, setView] = useState<"chart" | "table">("chart");
+  const chartData = data.map((d, index) => {
+    const previousValue = index > 0 ? data[index - 1].value : null;
+    const yoyGrowth = previousValue !== null ? ((d.value - previousValue) / previousValue) * 100 : null;
+    return { year: d.year, value: d.value, yoyGrowth };
+  });
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const marketSize = payload.find((p: any) => p.dataKey === "value");
+      const yoyGrowth = payload.find((p: any) => p.dataKey === "yoyGrowth");
+      return (<div className="rounded-lg border border-border bg-popover p-4 shadow-lg"><p className="mb-2 font-semibold text-foreground">{label}</p>{marketSize && (<div className="flex items-center gap-2 text-sm"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: "hsl(192, 95%, 55%)" }} /><span className="text-muted-foreground">Market Size:</span><span className="font-mono font-medium text-foreground">${marketSize.value.toLocaleString()}M</span></div>)}{yoyGrowth && yoyGrowth.value !== null && (<div className="flex items-center gap-2 text-sm mt-1"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: "hsl(38, 92%, 55%)" }} /><span className="text-muted-foreground">YoY Growth:</span><span className={`font-mono font-medium ${yoyGrowth.value >= 0 ? "text-chart-4" : "text-destructive"}`}>{yoyGrowth.value >= 0 ? "+" : ""}{yoyGrowth.value.toFixed(1)}%</span></div>)}</div>);
+    }
+    return null;
+  };
+  const renderLegend = () => (<div className="mt-3 sm:mt-4 flex flex-wrap justify-center gap-3 sm:gap-6"><div className="flex items-center gap-1.5 sm:gap-2"><div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full flex-shrink-0" style={{ backgroundColor: "hsl(192, 95%, 55%)" }} /><span className="text-xs sm:text-sm text-muted-foreground">Market Size (US$ M)</span></div><div className="flex items-center gap-1.5 sm:gap-2"><div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full flex-shrink-0" style={{ backgroundColor: "hsl(38, 92%, 55%)" }} /><span className="text-xs sm:text-sm text-muted-foreground">YoY Growth (%)</span></div></div>);
+  const tableHeaders = ["Year", "Market Size (US$ M)", "YoY Growth (%)"];
+  const tableRows = chartData.map((d) => [d.year, `$${d.value.toLocaleString()}M`, d.yoyGrowth !== null ? `${d.yoyGrowth >= 0 ? "+" : ""}${d.yoyGrowth.toFixed(1)}%` : "—"]);
+  return (
+    <motion.div ref={chartRef} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="rounded-xl border border-border bg-card p-3 sm:p-6">
+      <div className="mb-4 sm:mb-6 flex items-start justify-between"><div><h3 className="text-lg font-semibold text-foreground">{title}</h3>{subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}</div><div className="flex items-center gap-1"><ChartTableViewToggle view={view} onViewChange={setView} /><ChartDownloadButton onClick={() => downloadChart(chartRef, `market-overview-chart`, `${config.title} — ${title}`)} /></div></div>
+      <AnimatedViewSwitch view={view}
+        chart={<div className="h-[300px] sm:h-[350px] w-full -mx-2 sm:mx-0"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}><defs><linearGradient id="gradient-market-size-thermo-sheets" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(192, 95%, 55%)" stopOpacity={0.4} /><stop offset="95%" stopColor="hsl(192, 95%, 55%)" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="hsl(217, 33%, 18%)" /><XAxis dataKey="year" stroke="hsl(215, 20%, 55%)" fontSize={10} tickLine={false} interval={Math.ceil(data.length / 8)} /><YAxis yAxisId="left" stroke="hsl(215, 20%, 55%)" fontSize={10} tickLine={false} tickFormatter={(value) => useMillions ? `$${Math.round(value)}M` : `$${(value / 1000).toFixed(1)}B`} width={70} /><YAxis yAxisId="right" orientation="right" stroke="hsl(215, 20%, 55%)" fontSize={10} tickLine={false} tickFormatter={(value) => `${value.toFixed(0)}%`} domain={['auto', 'auto']} width={30} /><Tooltip content={<CustomTooltip />} /><Legend content={renderLegend} /><Line yAxisId="left" type="monotone" dataKey="value" stroke="hsl(192, 95%, 55%)" strokeWidth={3} dot={{ fill: "hsl(192, 95%, 55%)", strokeWidth: 0, r: 4 }} activeDot={{ r: 6, strokeWidth: 0 }} name="Market Size" /><Line yAxisId="right" type="monotone" dataKey="yoyGrowth" stroke="hsl(38, 92%, 55%)" strokeWidth={2} strokeDasharray="5 5" dot={{ fill: "hsl(38, 92%, 55%)", strokeWidth: 0, r: 3 }} activeDot={{ r: 5, strokeWidth: 0 }} name="YoY Growth" connectNulls /></ComposedChart></ResponsiveContainer></div>}
+        table={<DataTable headers={tableHeaders} rows={tableRows} />} />
+    </motion.div>
+  );
+}
+
+// ── MarketTrendChart ──────────────────────────────────────────
+
+interface MarketTrendChartProps { data: YearlyData[]; segments?: SegmentData[]; title: string; subtitle?: string; showSegments?: boolean; onSegmentClick?: (segmentName: string, segmentData: YearlyData[], color: string) => void; useMillions?: boolean; }
+
+export function MarketTrendChart({ data, segments, title, subtitle, showSegments = false, onSegmentClick, useMillions = false }: MarketTrendChartProps) {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const { downloadChart } = useChartDownload();
+  const [view, setView] = useState<"chart" | "table">("chart");
+  const chartData = data.map((d) => {
+    const point: Record<string, number> = { year: d.year, total: d.value };
+    if (showSegments && segments) segments.forEach((seg) => { point[seg.name] = seg.data.find((s) => s.year === d.year)?.value ?? 0; });
+    return point;
+  });
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const total = payload.reduce((sum: number, entry: any) => sum + (entry.value || 0), 0);
+      return (<div className="rounded-lg border border-border bg-popover p-4 shadow-lg"><p className="mb-2 font-semibold text-foreground">{label}</p>{payload.map((entry: any, index: number) => (<div key={index} className="flex items-center gap-2 text-sm"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: entry.color }} /><span className="text-muted-foreground">{entry.name}:</span><span className="font-mono font-medium text-foreground">${entry.value.toLocaleString()}M</span></div>))}{payload.length > 1 && (<div className="mt-2 border-t border-border pt-2 flex items-center gap-2 text-sm"><div className="h-3 w-3 rounded-full bg-foreground/50" /><span className="text-muted-foreground font-medium">Total:</span><span className="font-mono font-bold text-foreground">${total.toLocaleString()}M</span></div>)}{showSegments && segments && (<p className="mt-2 text-xs text-primary flex items-center gap-1"><MousePointer2 className="h-3 w-3" /> Click legend to drill down</p>)}</div>);
+    }
+    return null;
+  };
+  const handleLegendClick = (entry: any) => {
+    if (!onSegmentClick || !segments) return;
+    const segment = segments.find((s) => s.name === entry.value);
+    if (segment) onSegmentClick(segment.name, segment.data, CHART_COLORS[segments.indexOf(segment) % CHART_COLORS.length]);
+  };
+  const renderLegend = (props: any) => (<div className="mt-3 sm:mt-4 flex flex-wrap justify-center gap-x-2 gap-y-1 sm:gap-4">{props.payload.map((entry: any, index: number) => (<div key={index} className="flex cursor-pointer items-center gap-1.5 sm:gap-2 rounded-md px-1.5 sm:px-2 py-0.5 sm:py-1 transition-colors hover:bg-secondary/50" onClick={() => handleLegendClick(entry)}><div className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} /><span className="text-xs sm:text-sm text-muted-foreground">{entry.value}</span></div>))}</div>);
+  const tableHeaders = showSegments && segments ? ["Year", ...segments.map((s) => s.name), "Total"] : ["Year", "Market Size (US$ M)"];
+  const tableRows = chartData.map((d) => showSegments && segments ? [d.year, ...segments.map((s) => `$${(d[s.name] ?? 0).toLocaleString()}M`), `$${d.total.toLocaleString()}M`] : [d.year, `$${d.total.toLocaleString()}M`]);
+  return (
+    <motion.div ref={chartRef} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="rounded-xl border border-border bg-card p-3 sm:p-6">
+      <div className="mb-6 flex items-start justify-between"><div><h3 className="text-lg font-semibold text-foreground">{title}</h3>{subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}</div><div className="flex items-center gap-1"><ChartTableViewToggle view={view} onViewChange={setView} /><ChartDownloadButton onClick={() => downloadChart(chartRef, `market-trend-${title.toLowerCase().replace(/\s+/g, "-")}`, `${config.title} — ${title}`)} /></div></div>
+      <AnimatedViewSwitch view={view}
+        chart={<><div className="h-[300px] sm:h-[350px] w-full -mx-2 sm:mx-0"><ResponsiveContainer width="100%" height="100%"><AreaChart data={chartData} margin={{ top: 10, right: 15, left: 5, bottom: 0 }}><defs>{showSegments && segments ? segments.map((seg, idx) => (<linearGradient key={seg.name} id={`gradient-thermo-sheets-${idx}`} x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={CHART_COLORS[idx % CHART_COLORS.length]} stopOpacity={0.4} /><stop offset="95%" stopColor={CHART_COLORS[idx % CHART_COLORS.length]} stopOpacity={0} /></linearGradient>)) : (<linearGradient id="gradient-thermo-sheets-total" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(192, 95%, 55%)" stopOpacity={0.4} /><stop offset="95%" stopColor="hsl(192, 95%, 55%)" stopOpacity={0} /></linearGradient>)}</defs><CartesianGrid strokeDasharray="3 3" stroke="hsl(217, 33%, 18%)" /><XAxis dataKey="year" stroke="hsl(215, 20%, 55%)" fontSize={10} tickLine={false} interval={Math.ceil(data.length / 8)} /><YAxis stroke="hsl(215, 20%, 55%)" fontSize={12} tickLine={false} tickFormatter={(value) => useMillions ? `$${Math.round(value)}M` : `$${(value / 1000).toFixed(0)}B`} width={70} /><Tooltip content={<CustomTooltip />} />{showSegments && segments ? (<><Legend content={renderLegend} />{segments.map((seg, idx) => (<Area key={seg.name} type="monotone" dataKey={seg.name} stroke={CHART_COLORS[idx % CHART_COLORS.length]} fill={`url(#gradient-thermo-sheets-${idx})`} strokeWidth={2} style={{ cursor: "pointer" }} />))}</>) : (<Area type="monotone" dataKey="total" stroke="hsl(192, 95%, 55%)" fill="url(#gradient-thermo-sheets-total)" strokeWidth={2} name="Market Size" />)}</AreaChart></ResponsiveContainer></div>{showSegments && segments && (<p className="mt-2 text-center text-xs text-muted-foreground">Click any legend item to see detailed analysis</p>)}</>}
+        table={<DataTable headers={tableHeaders} rows={tableRows} />} />
+    </motion.div>
+  );
+}
+
+// ── SegmentPieChart ───────────────────────────────────────────
+
+interface SegmentPieChartProps { data: SegmentData[]; year: number; title: string; onSegmentClick?: (segmentName: string, segmentData: YearlyData[], color: string) => void; }
+
+const renderActivePieShape = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (<g><Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 8} startAngle={startAngle} endAngle={endAngle} fill={fill} style={{ filter: "drop-shadow(0 0 8px rgba(0,0,0,0.3))", cursor: "pointer" }} /></g>);
+};
+
+export function SegmentPieChart({ data, year, title, onSegmentClick }: SegmentPieChartProps) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const { downloadChart } = useChartDownload();
+  const [view, setView] = useState<"chart" | "table">("chart");
+  const pieData = data.map((segment, index) => ({ name: segment.name, value: segment.data.find((d) => d.year === year)?.value ?? 0, fullData: segment.data, color: CHART_COLORS[index % CHART_COLORS.length] }));
+  const total = pieData.reduce((sum, item) => sum + item.value, 0);
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const d = payload[0]; const percentage = ((d.value / total) * 100).toFixed(1);
+      return (<div className="rounded-lg border border-border bg-popover p-4 shadow-lg"><p className="font-semibold text-foreground">{d.name}</p><div className="mt-1 space-y-1 text-sm"><p className="text-muted-foreground">Value: <span className="font-mono font-medium text-foreground">${d.value.toLocaleString()}M</span></p><p className="text-muted-foreground">Share: <span className="font-mono font-medium text-foreground">{percentage}%</span></p></div><p className="mt-2 text-xs text-primary flex items-center gap-1"><MousePointer2 className="h-3 w-3" /> Click to drill down</p></div>);
+    }
+    return null;
+  };
+  const handlePieClick = (_data: any, index: number) => { if (onSegmentClick) { const segment = pieData[index]; onSegmentClick(segment.name, segment.fullData, segment.color); } };
+  const tableHeaders = ["Segment", `Value (${year})`, "Share (%)"]; const tableRows = pieData.map((entry) => [entry.name, `$${entry.value.toLocaleString()}M`, `${((entry.value / total) * 100).toFixed(1)}%`]);
+  return (
+    <motion.div ref={chartRef} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, delay: 0.3 }} className="rounded-xl border border-border bg-card p-3 sm:p-6">
+      <div className="mb-4 flex items-start justify-between"><div><h3 className="text-lg font-semibold text-foreground">{title}</h3><p className="text-sm text-muted-foreground">{year} Distribution</p></div><div className="flex items-center gap-1"><ChartTableViewToggle view={view} onViewChange={setView} /><ChartDownloadButton onClick={() => downloadChart(chartRef, `${title.toLowerCase().replace(/\s+/g, "-")}-${year}`, `${config.title} — ${title} (${year})`)} /></div></div>
+      <AnimatedViewSwitch view={view}
+        chart={<><div className="h-[280px] w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={pieData} cx="50%" cy="45%" innerRadius={50} outerRadius={85} paddingAngle={2} dataKey="value" stroke="hsl(222, 47%, 6%)" strokeWidth={2} activeIndex={activeIndex ?? undefined} activeShape={renderActivePieShape} onMouseEnter={(_, index) => setActiveIndex(index)} onMouseLeave={() => setActiveIndex(null)} onClick={handlePieClick} style={{ cursor: "pointer" }}>{pieData.map((_, index) => <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />)}</Pie><Tooltip content={<CustomTooltip />} /></PieChart></ResponsiveContainer></div><div className="mt-2 flex flex-wrap justify-center gap-3">{pieData.map((entry, index) => (<div key={index} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-secondary/50" onClick={() => handlePieClick(entry, index)}><div className="h-3 w-3 rounded-full" style={{ backgroundColor: entry.color }} /><span className="text-xs text-muted-foreground">{entry.name}</span></div>))}</div><p className="mt-2 text-center text-xs text-muted-foreground">Click any segment to see detailed trends</p></>}
+        table={<DataTable headers={tableHeaders} rows={tableRows} />} />
+    </motion.div>
+  );
+}
+
+// ── DistributionDonutsRow ─────────────────────────────────────
+
+interface MiniDonutProps { data: SegmentData[]; year: number; title: string; tabType: TabType; onClick?: (tabType: TabType) => void; onSliceClick?: (segmentName: string, segmentData: YearlyData[], color: string, donutType: TabType) => void; delay: number; }
+
+const renderActiveDonutShape = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (<g><Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 8} startAngle={startAngle} endAngle={endAngle} fill={fill} style={{ filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))", cursor: "pointer" }} /></g>);
+};
+
+function MiniDonut({ data, year, title, tabType, onClick, onSliceClick, delay }: MiniDonutProps) {
+  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
+  const pieData = data.map((segment, index) => ({ name: segment.name, value: segment.data.find((d) => d.year === year)?.value ?? 0, color: CHART_COLORS[index % CHART_COLORS.length], fullData: segment.data }));
+  const total = pieData.reduce((sum, item) => sum + item.value, 0);
+  const CustomTooltip = ({ active, payload }: any) => { if (active && payload && payload.length) { const item = payload[0]; const percentage = ((item.value / total) * 100).toFixed(1); return (<div className="rounded-lg border border-border bg-popover p-2 shadow-lg text-xs"><p className="font-semibold text-foreground">{item.name}</p><p className="text-muted-foreground">${item.value.toLocaleString()}M ({percentage}%)</p><p className="text-primary text-[10px] mt-1">Click to drill down</p></div>); } return null; };
+  const handlePieClick = (_data: any, index: number, e: React.MouseEvent) => { e.stopPropagation(); const segment = pieData[index]; if (segment && onSliceClick) onSliceClick(segment.name, segment.fullData, segment.color, tabType); };
+  return (
+    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, delay }} onClick={() => onClick?.(tabType)} className="rounded-xl border border-border bg-card p-4 cursor-pointer transition-all hover:border-primary/50 hover:shadow-lg">
+      <h4 className="text-sm font-medium text-foreground text-center mb-2">{title}</h4>
+      <div className="h-[140px] w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={pieData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} paddingAngle={2} dataKey="value" stroke="hsl(222, 47%, 6%)" strokeWidth={1} activeIndex={activeIndex} activeShape={renderActiveDonutShape} onMouseEnter={(_, index) => setActiveIndex(index)} onMouseLeave={() => setActiveIndex(undefined)} onClick={handlePieClick} style={{ cursor: "pointer" }}>{pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}</Pie><Tooltip content={<CustomTooltip />} /></PieChart></ResponsiveContainer></div>
+      <div className="flex flex-wrap justify-center gap-1 mt-2">{pieData.slice(0, 3).map((entry, index) => (<div key={index} className="flex items-center gap-1"><div className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} /><span className="text-[10px] text-muted-foreground truncate max-w-[50px]">{entry.name}</span></div>))}{pieData.length > 3 && <span className="text-[10px] text-muted-foreground">+{pieData.length - 3}</span>}</div>
+    </motion.div>
+  );
+}
+
+interface DistributionDonutsRowProps {
+  applicationData: SegmentData[]; aircraftData: SegmentData[]; regionData: SegmentData[];
+  materialTypeData: SegmentData[]; endUserData: SegmentData[];
+  year: number; onDonutClick?: (tabType: TabType) => void;
+  onSliceClick?: (segmentName: string, segmentData: YearlyData[], color: string, donutType: TabType) => void;
+}
+
+export function DistributionDonutsRow({ applicationData, aircraftData, regionData, materialTypeData, endUserData, year, onDonutClick, onSliceClick }: DistributionDonutsRowProps) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <MiniDonut data={applicationData} year={year} title="Application Type" tabType="application" onClick={onDonutClick} onSliceClick={onSliceClick} delay={0.1} />
+      <MiniDonut data={aircraftData} year={year} title="Aircraft Type" tabType="aircraft" onClick={onDonutClick} onSliceClick={onSliceClick} delay={0.15} />
+      <MiniDonut data={regionData} year={year} title="Region" tabType="region" onClick={onDonutClick} onSliceClick={onSliceClick} delay={0.2} />
+      <MiniDonut data={materialTypeData} year={year} title="Material Type" tabType="materialType" onClick={onDonutClick} onSliceClick={onSliceClick} delay={0.25} />
+      <MiniDonut data={endUserData} year={year} title="End-User Type" tabType="endUser" onClick={onDonutClick} onSliceClick={onSliceClick} delay={0.3} />
+    </div>
+  );
+}
+
+// ── DrillDownModal ────────────────────────────────────────────
+
+interface DrillDownModalProps { isOpen: boolean; onClose: () => void; segmentName: string; segmentData: YearlyData[]; color: string; useMillions?: boolean; }
+
+export function DrillDownModal({ isOpen, onClose, segmentName, segmentData, color, useMillions = false }: DrillDownModalProps) {
+  const trendChartRef = useRef<HTMLDivElement>(null);
+  const { downloadChart } = useChartDownload();
+  const gradientId = `drillGradient-thermo-sheets-${segmentName.replace(/[^a-zA-Z0-9]/g, "-")}`;
+  const currentRunningYear = new Date().getFullYear();
+  const allYears = segmentData?.map(d => d.year) ?? [];
+  const lastYear = allYears[allYears.length - 1] ?? 0;
+  const cagrStartYear = allYears.includes(currentRunningYear) ? currentRunningYear : (allYears[0] ?? 0);
+  const currentValue = segmentData?.find(d => d.year === cagrStartYear)?.value ?? 0; const forecastValue = segmentData?.[segmentData.length - 1]?.value ?? 0;
+  const cagr = calculateCAGR(currentValue, forecastValue, lastYear - cagrStartYear);
+  const CustomTooltip = ({ active, payload }: any) => { if (active && payload && payload.length) return (<div className="rounded-lg border border-border bg-popover p-3 shadow-lg"><p className="mb-1 font-semibold text-foreground">{payload[0].payload?.year}</p><p className="text-sm text-muted-foreground">Value: <span className="font-mono font-medium text-foreground">${payload[0].value.toLocaleString()}M</span></p></div>); return null; };
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="aircraft-interiors-theme max-w-4xl w-[95vw] sm:w-full max-h-[85vh] sm:max-h-[90vh] overflow-y-auto bg-[hsl(222,47%,9%)] border-[hsl(217,33%,18%)] text-[hsl(210,40%,96%)] top-[50%] left-[50%] p-4 sm:p-6 [&>button:last-child]:hidden">
+        <DialogHeader className="pb-4 mb-2 border-b border-[hsl(217,33%,18%)]"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2.5 min-w-0 flex-1"><div className="h-5 w-5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} /><DialogTitle className="text-base sm:text-xl font-bold text-[hsl(210,40%,96%)]">{segmentName} - Deep Dive</DialogTitle></div><button onClick={onClose} className="flex-shrink-0 rounded-full bg-[hsl(217,33%,22%)] p-2 text-[hsl(210,40%,96%)] hover:bg-[hsl(217,33%,28%)] transition-colors" aria-label="Close"><X className="h-4 w-4" /></button></div></DialogHeader>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-border bg-secondary/30 p-4"><p className="text-xs text-muted-foreground">{cagrStartYear} Market Size</p><p className="text-xl font-bold text-foreground">{useMillions ? `$${currentValue.toLocaleString()}M` : `$${(currentValue / 1000).toFixed(2)}B`}</p></motion.div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-lg border border-border bg-secondary/30 p-4"><p className="text-xs text-muted-foreground">{lastYear} Forecast</p><p className="text-xl font-bold text-foreground">{useMillions ? `$${forecastValue.toLocaleString()}M` : `$${(forecastValue / 1000).toFixed(2)}B`}</p></motion.div>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-lg border border-border bg-secondary/30 p-4"><p className="text-xs text-muted-foreground">CAGR ({cagrStartYear}-{lastYear})</p><div className="flex items-center gap-1"><p className="text-xl font-bold text-chart-4">{cagr.toFixed(1)}%</p><TrendingUp className="h-4 w-4 text-chart-4" /></div></motion.div>
+          </div>
+          <motion.div ref={trendChartRef} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-lg border border-border bg-secondary/20 p-4">
+            <div className="mb-4 flex items-center justify-between"><h4 className="text-sm font-semibold text-foreground">Historical & Forecast Trend</h4><ChartDownloadButton onClick={() => downloadChart(trendChartRef, `${segmentName}-trend`.toLowerCase().replace(/\s+/g, "-"), `${config.title} — ${segmentName} Trend`)} /></div>
+            <div className="h-[250px]"><ResponsiveContainer width="100%" height="100%"><AreaChart data={segmentData} margin={{ top: 10, right: 15, left: 5, bottom: 0 }}><defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={color} stopOpacity={0.4} /><stop offset="95%" stopColor={color} stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="hsl(217, 33%, 18%)" /><XAxis dataKey="year" stroke="hsl(215, 20%, 55%)" fontSize={10} tickLine={false} interval={Math.ceil(segmentData.length / 8)} /><YAxis stroke="hsl(215, 20%, 55%)" fontSize={12} tickLine={false} tickFormatter={(value) => useMillions ? `$${Math.round(value)}M` : `$${(value / 1000).toFixed(1)}B`} width={useMillions ? 70 : 50} /><Tooltip content={<CustomTooltip />} /><Area type="monotone" dataKey="value" stroke={color} fill={`url(#${gradientId})`} strokeWidth={2} /></AreaChart></ResponsiveContainer></div>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="rounded-lg border border-border bg-secondary/20 p-4">
+            <h4 className="mb-4 text-sm font-semibold text-foreground">Year-over-Year Data</h4>
+            <div className="max-h-[200px] overflow-y-auto"><table className="w-full text-sm"><thead className="sticky top-0 bg-secondary"><tr className="border-b border-border"><th className="px-3 py-2 text-left text-muted-foreground">Year</th><th className="px-3 py-2 text-right text-muted-foreground">Value</th><th className="px-3 py-2 text-right text-muted-foreground">YoY Change</th></tr></thead><tbody>{(segmentData ?? []).map((item, idx, arr) => { const prevValue = idx > 0 ? arr[idx - 1].value : null; const change = prevValue ? ((item.value - prevValue) / prevValue) * 100 : null; return (<tr key={item.year} className="border-b border-border/50 hover:bg-secondary/50"><td className="px-3 py-2 font-medium text-foreground">{item.year}</td><td className="px-3 py-2 text-right font-mono text-foreground">${item.value.toLocaleString()}M</td><td className={`px-3 py-2 text-right font-mono ${change === null ? "text-muted-foreground" : change >= 0 ? "text-chart-4" : "text-destructive"}`}>{change === null ? "—" : `${change >= 0 ? "+" : ""}${change.toFixed(1)}%`}</td></tr>); })}</tbody></table></div>
+          </motion.div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── ComparisonTable ───────────────────────────────────────────
+
+interface ComparisonTableProps { data: SegmentData[]; startYear: number; endYear: number; title: string; onRowClick?: (segmentName: string, segmentData: YearlyData[], color: string) => void; }
+
+export function ComparisonTable({ data, startYear, endYear, title, onRowClick }: ComparisonTableProps) {
+  const tableData = data.map((segment, index) => {
+    const startValue = segment.data.find((d) => d.year === startYear)?.value ?? 0;
+    const endValue = segment.data.find((d) => d.year === endYear)?.value ?? 0;
+    const cagr = startValue > 0 ? (Math.pow(endValue / startValue, 1 / (endYear - startYear)) - 1) * 100 : 0;
+    const growth = startValue > 0 ? ((endValue - startValue) / startValue) * 100 : 0;
+    return { name: segment.name, startValue, endValue, cagr, growth, fullData: segment.data, color: CHART_COLORS[index % CHART_COLORS.length] };
+  });
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.5 }} className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="p-3 sm:p-6 border-b border-border"><div className="flex items-center justify-between"><div><h3 className="text-lg font-semibold text-foreground">{title}</h3><p className="text-sm text-muted-foreground">{startYear} vs {endYear} Comparison</p></div>{onRowClick && (<div className="flex items-center gap-1 text-xs text-muted-foreground"><MousePointer2 className="h-3 w-3" /><span>Click rows to drill down</span></div>)}</div></div>
+      <div className="overflow-x-auto"><table className="w-full"><thead><tr className="border-b border-border bg-secondary/30"><th className="px-3 sm:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Segment</th><th className="px-3 sm:px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">{startYear}</th><th className="px-3 sm:px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">{endYear}</th><th className="px-3 sm:px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">CAGR</th><th className="px-3 sm:px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Growth</th></tr></thead><tbody className="divide-y divide-border">{tableData.map((row) => (<tr key={row.name} onClick={() => onRowClick?.(row.name, row.fullData, row.color)} className={`transition-colors ${onRowClick ? "cursor-pointer hover:bg-secondary/30" : ""}`}><td className="px-3 sm:px-6 py-4"><div className="flex items-center gap-3"><div className="h-3 w-3 rounded-full" style={{ backgroundColor: row.color }} /><span className="font-medium text-foreground text-sm">{row.name}</span></div></td><td className="px-3 sm:px-6 py-4 text-right font-mono text-sm text-muted-foreground">${row.startValue.toLocaleString()}M</td><td className="px-3 sm:px-6 py-4 text-right font-mono text-sm text-muted-foreground">${row.endValue.toLocaleString()}M</td><td className="px-3 sm:px-6 py-4 text-right font-mono text-sm"><span className={row.cagr >= 0 ? "text-chart-4" : "text-destructive"}>{row.cagr >= 0 ? "+" : ""}{row.cagr.toFixed(1)}%</span></td><td className="px-3 sm:px-6 py-4 text-right font-mono text-sm"><span className={row.growth >= 0 ? "text-chart-4" : "text-destructive"}>{row.growth >= 0 ? "+" : ""}{row.growth.toFixed(1)}%</span></td></tr>))}</tbody></table></div>
+    </motion.div>
+  );
+}

@@ -1,21 +1,37 @@
+
+
 ## Goal
-Load your uploaded "Lens_28.05.26_15.24" build into this project so you can edit it directly and see it in the preview.
+Mirror the **Got a Query?** form's prefill behavior in the **Access Request** dialog and the **Subscription Inquiry** form on My Account.
 
-## What's in the upload
-A complete Vite + React app (not the TanStack Start template currently here):
-- `src/` with `App.tsx`, `main.tsx`, `pages/`, `dashboards/`, `components/`, `store/`, `hooks/`, `lib/`, `config/`, `data/`, `assets/`
-- Root configs: `index.html`, `vite.config.ts`, `tailwind.config.ts`, `postcss.config.js`, `tsconfig*.json`, `eslint.config.js`, `components.json`, `package.json` + `bun.lock`
-- `public/`, `import_templates/`, and docs (`README.md`, `INTEGRATION.md`, `functional_dashboards.md`, `system_master_list.md`, etc.)
-- `.lovable/` project metadata
-- Excluded from copy: `node_modules/`, `dist/`, `bun.lockb`, `package-lock.json`, `.git` (none present, but guarded), `scratch/`
+## Pattern to apply (from QueryFormTab)
+- **Name, Designation, Company** → prefilled from user profile, **read-only** (muted background, no cursor)
+- **Email** → prefilled, **editable**
+- **Phone** → prefilled via `parsePhone` into `CountrySelector` + number input, **editable**
 
-## Plan
-1. Wipe the current TanStack Start scaffold in `/dev-server` (keep `.git` and any sandbox-managed dotfiles intact).
-2. Copy every file/folder from the uploaded archive into the project root, excluding `node_modules`, `dist`, `bun.lockb`, `package-lock.json`, and any `.git` metadata.
-3. Run `bun install` to install dependencies from the new `package.json` / `bun.lock`.
-4. Restart the dev server and load the preview so you can confirm it renders.
+## Changes
 
-## Notes
-- The new app uses standard Vite + React Router (not TanStack Start), so all current routes/files under `src/routes/` will be removed in favor of `src/App.tsx` + `src/pages/`.
-- Any API keys/secrets your developers had configured server-side are not in the zip; if the app calls external APIs via env vars, we may need to add them as secrets after the first preview load.
-- Approve this plan and I'll execute the swap and bring up the preview.
+### 1. `src/components/AccessRequestDialog.tsx`
+- Prefill all 5 fields from `user` whenever the dialog opens (re-sync on each open)
+- Make Name / Designation / Company read-only when the corresponding `user.<field>` exists
+- Remove the hardcoded `"Stratview Research"` company default
+- Replace the single Mobile text input with `CountrySelector` + phone number input (split via `parsePhone`)
+- On submit, send mobile as `` `${phoneCode}${phoneNum}` `` inside the existing message JSON
+- No change to `submitInquiry` payload shape or `type: 'access_request'`
+
+### 2. `src/pages/MyAccount.tsx` — Subscription Inquiry section
+Add a "Your Profile" block above the existing dashboard dropdown:
+- Read-only Name, Designation, Company (when present on `user`)
+- Editable Email + Phone (CountrySelector + number, prefilled via `parsePhone`)
+- Existing dashboard dropdown + message textarea remain
+- Continue dispatching `submitInquiry({ type: 'subscription_inquires' })` with the same JSON message shape (already includes name/designation/company/email/mobile/message)
+
+### 3. Visual consistency
+- Read-only inputs use the same treatment as QueryFormTab (`bg-muted/50 text-foreground cursor-default`)
+- All three forms share `CountrySelector` + `parsePhone` for phone handling
+
+## Files touched
+- `src/components/AccessRequestDialog.tsx`
+- `src/pages/MyAccount.tsx`
+
+No new dependencies, no API contract changes, no store/slice changes.
+

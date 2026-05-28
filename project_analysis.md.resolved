@@ -1,0 +1,49 @@
+# Project Analysis: Dashboard Interiors Composites
+
+This document provides a comprehensive overview of the `dashboard-interiors-composites` project's architecture, technologies, modules, and core features.
+
+## 1. Technology Stack and Architecture
+
+The project is a modern, responsive single-page web application (SPA) built to deliver interactive data dashboards. 
+
+### Core Tech Stack
+- **Frontend Framework:** React 18 with TypeScript, bundled and served using **Vite** for rapid development.
+- **Styling:** **Tailwind CSS** paired with **shadcn-ui** components (@radix-ui primitives). This ensures a clean, modern, and accessible design system.
+- **Routing:** **React Router v6** (`react-router-dom`) handles client-side navigation.
+- **State Management & Data Fetching:** **React Query** (`@tanstack/react-query`) is used for managing asynchronous data, caching, and background updates.
+- **Forms & Validation:** Handled securely via **React Hook Form** paired with **Zod** schema validation.
+- **Animations & Charts:** Incorporates **framer-motion** for animations and **recharts** for data visualization.
+
+## 2. Core Modules & Directory Structure
+
+The `src` directory organizes the application into logically distinct modules:
+
+| Directory | Purpose |
+| :--- | :--- |
+| `src/assets/` | Static assets like images and fonts. |
+| `src/components/` | Reusable UI pieces. Contains `ui/` for primitive shadcn UI components and complex app components like `DashboardHeader.tsx`, `DatasetList.tsx`, and `AccessRequestDialog.tsx`. |
+| `src/dashboards/` | The core data visualizations. It features an **auto-discovery registry** for dynamically loading new dashboards. |
+| `src/pages/` | Top-level application routes representing full-screen views (e.g., Auth, Dashboard, Terms). |
+| `src/hooks/` & `src/data/` | Custom analytical hooks and mocked/static data models. |
+
+## 3. Key Application Features
+
+### A. Dynamic Dashboard Architecture (The "Auto-Discovery" Engine)
+The standout feature of this repository is its **Dashboard Auto-Discovery Registry** (`src/dashboards/registry.ts`). 
+- Instead of manually importing and routing every new data report, the app dynamically uses Vite's `import.meta.glob` to scan the `src/dashboards` folder for `config.ts` and `Dashboard.tsx` files.
+- **Scalability:** When a new market report needs to be added (e.g., `water-waste-water` or `galley-market`), a developer simply drops a new folder into `src/dashboards`. The app compiles it into the unified internal registry automatically.
+- **Current Dashboards:** There are currently **25 distinct market dashboard modules** (e.g., Aircraft Interiors, Cabin Composites, Seats Market, Lighting Market, etc.).
+
+### B. User Accounts & Authentication Flow
+The application possesses a complete user life-cycle flow:
+- `SignUp.tsx`, `LoginForm.tsx`, and `ForgotPassword.tsx` manage credentials and authentication.
+- `MyAccount.tsx` serves as the user's profile and settings manager.
+
+### C. Dataset / Report Subscriptions
+The platform acts as a market intelligence portal where users can view and subscribe to data reports:
+- The **Main Dashboard** (`pages/Dashboard.tsx`) acts as a hub showing a `DatasetList` of available and purchased reports (`SubscriptionsSection.tsx`).
+- Detailed views of these datasets are handled in `DatasetDetail.tsx`.
+- Gated Content is managed via components like `AccessRequestDialog.tsx`, verifying whether a user has purchased (`purchased?: boolean`) access to a dataset catalog.
+
+## Summary
+The codebase is structured as a **Market Intelligence Portal**. Its most powerful feature is the scalable plugin-like folder architecture for dashboards, meaning that adding new reports requires zero core-routing file modifications. It marries a premium component library (shadcn/Tailwind) with robust state management (React Query) to deliver responsive analytics to end-users.
