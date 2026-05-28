@@ -4,6 +4,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   AlertCircle,
   ChevronLeft,
@@ -43,6 +44,10 @@ const PdfViewer = () => {
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
   const [fitWidth, setFitWidth] = useState(true);
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [downloadedBytes, setDownloadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState<number | null>(null);
+  const [renderProgress, setRenderProgress] = useState(0);
+  const [rendering, setRendering] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -192,11 +197,41 @@ const PdfViewer = () => {
     setLoading(true);
     setError(null);
     setPageNum(1);
+    setDownloadedBytes(0);
+    setTotalBytes(null);
+    setRenderProgress(0);
+    setRendering(false);
     try {
       const res = await apiService.get(src);
       if (!res.ok) throw new Error(`Failed to load PDF (${res.status})`);
-      const b = await res.blob();
+      const lenHeader = res.headers.get("Content-Length");
+      const total = lenHeader ? parseInt(lenHeader, 10) : NaN;
+      if (Number.isFinite(total) && total > 0) setTotalBytes(total);
+
+      let b: Blob;
+      if (res.body && typeof (res.body as any).getReader === "function") {
+        const reader = (res.body as ReadableStream<Uint8Array>).getReader();
+        const chunks: Uint8Array[] = [];
+        let received = 0;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            received += value.byteLength;
+            setDownloadedBytes(received);
+          }
+        }
+        b = new Blob(chunks as BlobPart[], {
+          type: res.headers.get("Content-Type") || "application/pdf",
+        });
+      } else {
+        b = await res.blob();
+        setDownloadedBytes(b.size);
+      }
       setBlob(b);
+      setRendering(true);
       const url = URL.createObjectURL(b);
       setBlobUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
@@ -248,6 +283,24 @@ const PdfViewer = () => {
   };
 
   const onContextMenu = (e: React.MouseEvent) => e.preventDefault();
+
+  const formatBytes = (n: number) => {
+    if (!Number.isFinite(n) || n <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    const i = Math.min(units.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+    return `${(n / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  };
+
+  const downloadPct =
+    totalBytes && totalBytes > 0
+      ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 100))
+      : null;
+  const showProgress = loading || rendering;
+  const stageDownloading = loading;
+  const isIndeterminate = stageDownloading && downloadPct === null;
+  const activePct = stageDownloading
+    ? downloadPct ?? 0
+    : Math.max(5, Math.round(renderProgress * 100));
 
   const renderDownloadSlot = () => {
     if (tier === "enterprise") {
@@ -360,9 +413,30 @@ const PdfViewer = () => {
         className="flex-1 overflow-auto bg-muted/30 outline-none"
         onContextMenu={onContextMenu}
       >
-        {loading && (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        {showProgress && !error && (
+          <div className="flex h-full items-center justify-center p-6">
+            <div className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-sm">
+              <div className="mb-3 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <span className="text-sm font-medium">
+                  {stageDownloading ? "Loading report…" : "Preparing pages…"}
+                </span>
+              </div>
+              <Progress
+                value={isIndeterminate ? 0 : activePct}
+                className={isIndeterminate ? "animate-pulse" : ""}
+              />
+              <div className="mt-2 flex justify-between text-xs tabular-nums text-muted-foreground">
+                <span>
+                  {stageDownloading
+                    ? isIndeterminate
+                      ? `${formatBytes(downloadedBytes)} downloaded`
+                      : `${formatBytes(downloadedBytes)} / ${formatBytes(totalBytes!)}`
+                    : "Rendering…"}
+                </span>
+                <span>{isIndeterminate ? "" : `${activePct}%`}</span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -377,11 +451,23 @@ const PdfViewer = () => {
         )}
 
         {!loading && !error && fileProp && (
-          <div className="flex justify-center py-6">
+          <div
+            className="flex justify-center py-6"
+            style={rendering ? { visibility: "hidden", height: 0, overflow: "hidden" } : undefined}
+          >
             <Document
               file={fileProp}
-              onLoadSuccess={({ numPages: n }) => setNumPages(n)}
-              onLoadError={(e) => setError(e?.message || "Failed to render PDF")}
+              onLoadProgress={({ loaded, total }) => {
+                if (total) setRenderProgress(loaded / total);
+              }}
+              onLoadSuccess={({ numPages: n }) => {
+                setNumPages(n);
+                setRendering(false);
+              }}
+              onLoadError={(e) => {
+                setRendering(false);
+                setError(e?.message || "Failed to render PDF");
+              }}
               loading={
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
